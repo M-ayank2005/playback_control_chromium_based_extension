@@ -1,0 +1,82 @@
+{
+  "manifest_version": 3,
+  "name": "JioHotstar Speed & Playback Controller",
+  "short_name": "JioHotstar Controller",
+  "version": "1.0.0",
+  "description": "Custom playback speed, steppers, shortcuts, video filters & controls for JioHotstar, YouTube and all HTML5 video players.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://*.hotstar.com/*",
+    "*://*.jiohotstar.com/*",
+    "*://*.youtube.com/*",
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "JioHotstar Speed Controller",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content/content.js"
+      ],
+      "css": [
+        "content/content.css"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    }
+  ],
+  "commands": {
+    "increase_speed": {
+      "suggested_key": {
+        "default": "Alt+Shift+Right",
+        "mac": "Alt+Shift+Right"
+      },
+      "description": "Increase playback speed by 0.1x"
+    },
+    "decrease_speed": {
+      "suggested_key": {
+        "default": "Alt+Shift+Left",
+        "mac": "Alt+Shift+Left"
+      },
+      "description": "Decrease playback speed by 0.1x"
+    },
+    "reset_speed": {
+      "suggested_key": {
+        "default": "Alt+Shift+0",
+        "mac": "Alt+Shift+0"
+      },
+      "description": "Reset playback speed to 1.0x"
+    },
+    "toggle_pip": {
+      "suggested_key": {
+        "default": "Alt+Shift+P",
+        "mac": "Alt+Shift+P"
+      },
+      "description": "Toggle Picture-in-Picture"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

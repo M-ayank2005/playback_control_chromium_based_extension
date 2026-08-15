@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>JioHotstar Extension Test Player</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 40px;
+      background: #0F172A;
+      color: #F8FAFC;
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .container {
+      max-width: 800px;
+      width: 100%;
+      background: #1E293B;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    h1 {
+      color: #38BDF8;
+      margin-top: 0;
+    }
+    video {
+      width: 100%;
+      border-radius: 12px;
+      background: #000;
+    }
+    .info {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      background: #0F172A;
+      padding: 16px;
+      border-radius: 8px;
+    }
+    .stat {
+      font-size: 14px;
+      color: #94A3B8;
+    }
+    .stat-val {
+      font-size: 20px;
+      font-weight: bold;
+      color: #FDE047;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎬 JioHotstar Playback Speed Controller - Test Page</h1>
+    <p>This test page contains a standard HTML5 video element to verify speed changes, HUD overlay, hotkeys, and video filters.</p>
+    
+    <video id="testVideo" controls loop autoplay muted poster="https://peach.blender.org/wp-content/uploads/title_anouncement.jpg">
+      <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
+      Your browser does not support the video tag.
+    </video>
+
+    <div class="info">
+      <div class="stat">
+        Current Speed:
+        <div class="stat-val" id="speedReadout">1.00x</div>
+      </div>
+      <div class="stat">
+        Current Time:
+        <div class="stat-val" id="timeReadout">0.0s</div>
+      </div>
+      <div class="stat">
+        Status:
+        <div class="stat-val" id="statusReadout">Playing</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const vid = document.getElementById('testVideo');
+    const speedReadout = document.getElementById('speedReadout');
+    const timeReadout = document.getElementById('timeReadout');
+    const statusReadout = document.getElementById('statusReadout');
+
+    function updateStats() {
+      speedReadout.textContent = vid.playbackRate.toFixed(2) + 'x';
+      timeReadout.textContent = vid.currentTime.toFixed(1) + 's';
+      statusReadout.textContent = vid.paused ? 'Paused' : 'Playing';
+    }
+
+    vid.addEventListener('ratechange', updateStats);
+    vid.addEventListener('timeupdate', updateStats);
+    vid.addEventListener('play', updateStats);
+    vid.addEventListener('pause', updateStats);
+    setInterval(updateStats, 200);
+  </script>
+</body>
+</html>

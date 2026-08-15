@@ -1,0 +1,68 @@
+/* JioHotstar & Universal Video Controller HUD Styling */
+
+#jio-speed-hud-container {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  z-index: 2147483647;
+  pointer-events: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  user-select: none;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0;
+  transform: translateY(-8px) scale(0.95);
+}
+
+#jio-speed-hud-container.hud-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.jio-speed-hud-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 9999px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(56, 189, 248, 0.2);
+  color: #F8FAFC;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+}
+
+.jio-speed-hud-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #06B6D4, #6366F1);
+  color: #FFFFFF;
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
+}
+
+.jio-speed-hud-icon svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.jio-speed-hud-text {
+  background: linear-gradient(90deg, #38BDF8, #FDE047);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.jio-speed-hud-subtext {
+  font-size: 12px;
+  color: #94A3B8;
+  font-weight: 500;
+}

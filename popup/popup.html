@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JioHotstar Speed & Playback Controller</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-brand">
+        <div class="header-icon">
+          <img src="../icons/icon32.png" alt="Logo">
+        </div>
+        <div>
+          <div class="header-title">JioHotstar Controller</div>
+          <div class="header-subtitle">Speed & Playback Manager</div>
+        </div>
+      </div>
+      <div class="status-pill" id="videoStatusPill">
+        <span class="status-dot"></span>
+        <span id="videoStatusText">Searching...</span>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="tabs-nav">
+      <button class="tab-btn active" data-tab="tab-speed">⚡ Speed</button>
+      <button class="tab-btn" data-tab="tab-controls">🎬 Playback</button>
+      <button class="tab-btn" data-tab="tab-filters">🎨 Filters</button>
+      <button class="tab-btn" data-tab="tab-settings">⚙️ Settings</button>
+    </nav>
+
+    <!-- TAB 1: SPEED CONTROLS -->
+    <main class="tab-panel active" id="tab-speed">
+      <section class="card">
+        <div class="speed-hero">
+          <div style="display: flex; align-items: baseline; gap: 2px;">
+            <span class="speed-value-display" id="speedDisplay">1.00</span>
+            <span class="speed-unit">x</span>
+          </div>
+          <div class="speed-label">Active Playback Speed</div>
+        </div>
+
+        <!-- Stepper Buttons -->
+        <div class="stepper-row">
+          <button class="btn-stepper" id="btnMinus05">-0.5</button>
+          <button class="btn-stepper" id="btnMinus01">-0.1</button>
+          <button class="btn-stepper btn-reset" id="btnReset">1.0x</button>
+          <button class="btn-stepper" id="btnPlus01">+0.1</button>
+          <button class="btn-stepper" id="btnPlus05">+0.5</button>
+        </div>
+
+        <!-- Preset Chips -->
+        <div class="presets-grid" id="presetsContainer">
+          <button class="preset-chip" data-speed="0.5">0.5x</button>
+          <button class="preset-chip" data-speed="0.75">0.75x</button>
+          <button class="preset-chip active" data-speed="1.0">1.0x</button>
+          <button class="preset-chip" data-speed="1.25">1.25x</button>
+          <button class="preset-chip" data-speed="1.5">1.5x</button>
+          <button class="preset-chip" data-speed="1.75">1.75x</button>
+          <button class="preset-chip" data-speed="2.0">2.0x</button>
+          <button class="preset-chip" data-speed="2.5">2.5x</button>
+          <button class="preset-chip" data-speed="3.0">3.0x</button>
+          <button class="preset-chip" data-speed="4.0">4.0x</button>
+        </div>
+
+        <!-- Custom Speed Input -->
+        <div class="custom-input-group">
+          <input type="number" id="customSpeedInput" class="custom-input" placeholder="Custom speed (e.g. 1.85)" step="0.05" min="0.1" max="16.0">
+          <button class="btn-primary" id="btnApplyCustom">Apply</button>
+        </div>
+      </section>
+    </main>
+
+    <!-- TAB 2: MEDIA PLAYBACK CONTROLS -->
+    <main class="tab-panel" id="tab-controls">
+      <section class="card">
+        <div class="media-controls-grid">
+          <button class="btn-media" id="btnSeekRewind">⏪ -10s</button>
+          <button class="btn-media play-pause" id="btnPlayPause">⏯️ Play</button>
+          <button class="btn-media" id="btnSeekForward">⏩ +10s</button>
+        </div>
+
+        <div class="media-controls-grid" style="grid-template-columns: 1fr 1fr;">
+          <button class="btn-media" id="btnTogglePip">🖼️ Picture-in-Pic</button>
+          <button class="btn-media" id="btnToggleMute">🔇 Mute / Unmute</button>
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>🔊 Volume</span>
+            <span id="volumeVal">100%</span>
+          </div>
+          <input type="range" id="volumeSlider" min="0" max="100" value="100">
+        </div>
+      </section>
+    </main>
+
+    <!-- TAB 3: VIDEO VISUAL FILTERS -->
+    <main class="tab-panel" id="tab-filters">
+      <section class="card">
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>☀️ Brightness</span>
+            <span id="brightVal">100%</span>
+          </div>
+          <input type="range" id="brightSlider" min="50" max="200" value="100">
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>🌓 Contrast</span>
+            <span id="contrastVal">100%</span>
+          </div>
+          <input type="range" id="contrastSlider" min="50" max="200" value="100">
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-label">
+            <span>🎨 Saturation</span>
+            <span id="satVal">100%</span>
+          </div>
+          <input type="range" id="satSlider" min="0" max="200" value="100">
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">🌙 Invert Colors</span>
+            <span class="setting-desc">High contrast dark room toggle</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="invertToggle">
+            <span class="slider-switch"></span>
+          </label>
+        </div>
+
+        <button class="btn-stepper btn-reset" id="btnResetFilters" style="margin-top: 4px;">Reset All Filters</button>
+      </section>
+    </main>
+
+    <!-- TAB 4: SETTINGS & SHORTCUTS -->
+    <main class="tab-panel" id="tab-settings">
+      <section class="card">
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">🔒 Lock Speed</span>
+            <span class="setting-desc">Auto-reapply speed on JioHotstar video changes</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="rememberSpeedToggle" checked>
+            <span class="slider-switch"></span>
+          </label>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">💬 On-Video HUD Badge</span>
+            <span class="setting-desc">Show speed indicator overlay on video</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="hudToggle" checked>
+            <span class="slider-switch"></span>
+          </label>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">⌨️ Keyboard Hotkeys</span>
+            <span class="setting-desc">Enable Z, X, C, S, D, P hotkeys on video page</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="hotkeysToggle" checked>
+            <span class="slider-switch"></span>
+          </label>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="setting-title" style="margin-bottom: 6px;">⌨️ Hotkey Cheat Sheet</div>
+        <div class="shortcut-list">
+          <div class="shortcut-item">
+            <span>Decrease Speed by -0.1x</span>
+            <span class="kbd">Z or [</span>
+          </div>
+          <div class="shortcut-item">
+            <span>Increase Speed by +0.1x</span>
+            <span class="kbd">C or ]</span>
+          </div>
+          <div class="shortcut-item">
+            <span>Reset Speed to 1.0x</span>
+            <span class="kbd">X or \</span>
+          </div>
+          <div class="shortcut-item">
+            <span>Step Speed -0.5x / +0.5x</span>
+            <span class="kbd">S / D</span>
+          </div>
+          <div class="shortcut-item">
+            <span>Toggle Picture-in-Picture</span>
+            <span class="kbd">P</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      Optimized for <span>JioHotstar</span> & Universal HTML5
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
