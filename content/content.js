@@ -11,7 +11,6 @@
   let speedStep = 0.1;
   let rememberSpeed = true;
   let hudEnabled = true;
-  let hotkeysEnabled = true;
   let isRateLocking = false;
   let hudTimeout = null;
 
@@ -23,12 +22,11 @@
   };
 
   // Load initial settings
-  chrome.storage.local.get(['speed', 'step', 'rememberSpeed', 'hudEnabled', 'hotkeysEnabled', 'filters'], (res) => {
+  chrome.storage.local.get(['speed', 'step', 'rememberSpeed', 'hudEnabled', 'filters'], (res) => {
     if (res.speed) currentSpeed = parseFloat(res.speed);
     if (res.step) speedStep = parseFloat(res.step);
     if (res.rememberSpeed !== undefined) rememberSpeed = res.rememberSpeed;
     if (res.hudEnabled !== undefined) hudEnabled = res.hudEnabled;
-    if (res.hotkeysEnabled !== undefined) hotkeysEnabled = res.hotkeysEnabled;
     if (res.filters) videoFilters = res.filters;
 
     applySpeedToAllVideos(currentSpeed, false);
@@ -88,7 +86,7 @@
 
     video.addEventListener('play', enforceSpeed);
     video.addEventListener('loadedmetadata', enforceSpeed);
-    video.addEventListener('ratechange', (e) => {
+    video.addEventListener('ratechange', () => {
       if (isRateLocking) return;
       // If website script (like JioHotstar ad/quality shift) changes playbackRate, re-apply user speed if rememberSpeed is true
       if (rememberSpeed && Math.abs(video.playbackRate - currentSpeed) > 0.01) {
@@ -119,6 +117,8 @@
     currentSpeed = speed;
 
     const videos = getAllVideos();
+    if (videos.length === 0) return;
+
     videos.forEach(video => {
       try {
         isRateLocking = true;
@@ -231,54 +231,6 @@
     }
   }
 
-  function toggleMute() {
-    const video = getPrimaryVideo();
-    if (!video) return;
-    video.muted = !video.muted;
-    showHUD(video.muted ? '🔇 Muted' : '🔊 Unmuted');
-  }
-
-  // Check if keyboard target is editable
-  function isInputField(element) {
-    if (!element) return false;
-    const tagName = element.tagName.toLowerCase();
-    return (
-      tagName === 'input' ||
-      tagName === 'textarea' ||
-      element.isContentEditable ||
-      element.getAttribute('role') === 'textbox'
-    );
-  }
-
-  // Keyboard Shortcuts Listener
-  document.addEventListener('keydown', (e) => {
-    if (!hotkeysEnabled || isInputField(document.activeElement)) return;
-
-    const key = e.key.toLowerCase();
-
-    // Hotkey bindings
-    if (key === 'z' || key === '[') {
-      applySpeedToAllVideos(currentSpeed - speedStep);
-    } else if (key === 'c' || key === ']') {
-      applySpeedToAllVideos(currentSpeed + speedStep);
-    } else if (key === 'x' || key === '\\') {
-      applySpeedToAllVideos(1.0);
-    } else if (key === 's') {
-      applySpeedToAllVideos(currentSpeed - 0.5);
-    } else if (key === 'd') {
-      applySpeedToAllVideos(currentSpeed + 0.5);
-    } else if (key === 'p') {
-      togglePiP();
-    } else if (key === 'm') {
-      toggleMute();
-    } else if (key === 'r') {
-      videoFilters = { brightness: 100, contrast: 100, saturation: 100, invert: false };
-      applyFiltersToAllVideos();
-      chrome.storage.local.set({ filters: videoFilters });
-      showHUD('🎨 Filters Reset');
-    }
-  }, true);
-
   // Message listener from popup and background service worker
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.type === 'GET_STATUS') {
@@ -293,7 +245,6 @@
         duration: video ? video.duration : 0,
         filters: videoFilters,
         hudEnabled,
-        hotkeysEnabled,
         rememberSpeed
       });
     } else if (request.type === 'SET_SPEED') {
@@ -322,15 +273,8 @@
       sendResponse({ success: true });
     } else if (request.type === 'UPDATE_SETTINGS') {
       if (request.hudEnabled !== undefined) hudEnabled = request.hudEnabled;
-      if (request.hotkeysEnabled !== undefined) hotkeysEnabled = request.hotkeysEnabled;
       if (request.rememberSpeed !== undefined) rememberSpeed = request.rememberSpeed;
       if (request.step !== undefined) speedStep = request.step;
-      sendResponse({ success: true });
-    } else if (request.type === 'KEYBOARD_COMMAND') {
-      if (request.command === 'increase_speed') applySpeedToAllVideos(currentSpeed + speedStep);
-      if (request.command === 'decrease_speed') applySpeedToAllVideos(currentSpeed - speedStep);
-      if (request.command === 'reset_speed') applySpeedToAllVideos(1.0);
-      if (request.command === 'toggle_pip') togglePiP();
       sendResponse({ success: true });
     }
     return true;

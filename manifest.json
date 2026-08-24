@@ -43,36 +43,6 @@
       "all_frames": true
     }
   ],
-  "commands": {
-    "increase_speed": {
-      "suggested_key": {
-        "default": "Alt+Shift+Right",
-        "mac": "Alt+Shift+Right"
-      },
-      "description": "Increase playback speed by 0.1x"
-    },
-    "decrease_speed": {
-      "suggested_key": {
-        "default": "Alt+Shift+Left",
-        "mac": "Alt+Shift+Left"
-      },
-      "description": "Decrease playback speed by 0.1x"
-    },
-    "reset_speed": {
-      "suggested_key": {
-        "default": "Alt+Shift+0",
-        "mac": "Alt+Shift+0"
-      },
-      "description": "Reset playback speed to 1.0x"
-    },
-    "toggle_pip": {
-      "suggested_key": {
-        "default": "Alt+Shift+P",
-        "mac": "Alt+Shift+P"
-      },
-      "description": "Toggle Picture-in-Picture"
-    }
-  },
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",

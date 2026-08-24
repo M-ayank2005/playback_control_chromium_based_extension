@@ -5,7 +5,6 @@ const DEFAULT_SETTINGS = {
   step: 0.1,
   rememberSpeed: true,
   hudEnabled: true,
-  hotkeysEnabled: true,
   filters: {
     brightness: 100,
     contrast: 100,
@@ -29,7 +28,7 @@ function updateBadge(speed) {
   } else {
     const formatted = parseFloat(speed).toFixed(1).replace('.0', '');
     chrome.action.setBadgeText({ text: `${formatted}x` });
-    chrome.action.setBadgeBackgroundColor({ color: '#06B6D4' }); // Cyan glow accent
+    chrome.action.setBadgeBackgroundColor({ color: '#FF7043' }); // Peach-Coral glow badge
   }
 }
 
@@ -38,18 +37,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes.speed) {
     updateBadge(changes.speed.newValue);
   }
-});
-
-// Listen for keyboard command hotkeys defined in manifest
-chrome.commands.onCommand.addListener(async (command) => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab || !tab.id) return;
-
-  chrome.tabs.sendMessage(tab.id, { type: 'KEYBOARD_COMMAND', command }, (res) => {
-    if (chrome.runtime.lastError) {
-      // Content script might not be loaded on this page
-    }
-  });
 });
 
 // Listen for popup or content script messages

@@ -39,7 +39,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const rememberSpeedToggle = document.getElementById('rememberSpeedToggle');
   const hudToggle = document.getElementById('hudToggle');
-  const hotkeysToggle = document.getElementById('hotkeysToggle');
 
   let currentActiveTabId = null;
   let activeSpeed = 1.0;
@@ -68,7 +67,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.tabs.sendMessage(currentActiveTabId, message, (response) => {
       if (chrome.runtime.lastError) {
         // Content script might not be injected or on a chrome:// page
-        updateStatus(false, 'No Video Detected');
+        updateStatus(false, 'No Video Found');
       } else if (callback) {
         callback(response);
       }
@@ -132,7 +131,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         if (res.rememberSpeed !== undefined) rememberSpeedToggle.checked = res.rememberSpeed;
         if (res.hudEnabled !== undefined) hudToggle.checked = res.hudEnabled;
-        if (res.hotkeysEnabled !== undefined) hotkeysToggle.checked = res.hotkeysEnabled;
       }
     });
   }
@@ -229,8 +227,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function updateSettings() {
     const settings = {
       rememberSpeed: rememberSpeedToggle.checked,
-      hudEnabled: hudToggle.checked,
-      hotkeysEnabled: hotkeysToggle.checked
+      hudEnabled: hudToggle.checked
     };
     chrome.storage.local.set(settings);
     sendMessageToTab({ type: 'UPDATE_SETTINGS', ...settings });
@@ -238,5 +235,4 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   rememberSpeedToggle.addEventListener('change', updateSettings);
   hudToggle.addEventListener('change', updateSettings);
-  hotkeysToggle.addEventListener('change', updateSettings);
 });

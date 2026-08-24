@@ -15,8 +15,8 @@
           <img src="../icons/icon32.png" alt="Logo">
         </div>
         <div>
-          <div class="header-title">JioHotstar Controller</div>
-          <div class="header-subtitle">Speed & Playback Manager</div>
+          <div class="header-title">JioHotstar Speed</div>
+          <div class="header-subtitle">Playback & Video Manager</div>
         </div>
       </div>
       <div class="status-pill" id="videoStatusPill">
@@ -26,15 +26,14 @@
     </header>
 
     <!-- Navigation Tabs -->
-    <nav class="tabs-nav">
-      <button class="tab-btn active" data-tab="tab-speed">⚡ Speed</button>
-      <button class="tab-btn" data-tab="tab-controls">🎬 Playback</button>
-      <button class="tab-btn" data-tab="tab-filters">🎨 Filters</button>
-      <button class="tab-btn" data-tab="tab-settings">⚙️ Settings</button>
+    <nav class="tabs-nav" aria-label="Extension Navigation">
+      <button class="tab-btn active" data-tab="tab-speed" aria-controls="tab-speed">⚡ Speed</button>
+      <button class="tab-btn" data-tab="tab-controls" aria-controls="tab-controls">🎬 Playback</button>
+      <button class="tab-btn" data-tab="tab-filters" aria-controls="tab-filters">🎨 Filters & Settings</button>
     </nav>
 
     <!-- TAB 1: SPEED CONTROLS -->
-    <main class="tab-panel active" id="tab-speed">
+    <main class="tab-panel active" id="tab-speed" role="tabpanel">
       <section class="card">
         <div class="speed-hero">
           <div style="display: flex; align-items: baseline; gap: 2px;">
@@ -46,11 +45,11 @@
 
         <!-- Stepper Buttons -->
         <div class="stepper-row">
-          <button class="btn-stepper" id="btnMinus05">-0.5</button>
-          <button class="btn-stepper" id="btnMinus01">-0.1</button>
-          <button class="btn-stepper btn-reset" id="btnReset">1.0x</button>
-          <button class="btn-stepper" id="btnPlus01">+0.1</button>
-          <button class="btn-stepper" id="btnPlus05">+0.5</button>
+          <button class="btn-stepper" id="btnMinus05" aria-label="Decrease speed by 0.5">-0.5</button>
+          <button class="btn-stepper" id="btnMinus01" aria-label="Decrease speed by 0.1">-0.1</button>
+          <button class="btn-stepper btn-reset" id="btnReset" aria-label="Reset speed to 1.0">1.0x</button>
+          <button class="btn-stepper" id="btnPlus01" aria-label="Increase speed by 0.1">+0.1</button>
+          <button class="btn-stepper" id="btnPlus05" aria-label="Increase speed by 0.5">+0.5</button>
         </div>
 
         <!-- Preset Chips -->
@@ -69,14 +68,14 @@
 
         <!-- Custom Speed Input -->
         <div class="custom-input-group">
-          <input type="number" id="customSpeedInput" class="custom-input" placeholder="Custom speed (e.g. 1.85)" step="0.05" min="0.1" max="16.0">
+          <input type="number" id="customSpeedInput" class="custom-input" placeholder="Custom speed (e.g. 1.85)" step="0.05" min="0.1" max="16.0" aria-label="Custom speed input">
           <button class="btn-primary" id="btnApplyCustom">Apply</button>
         </div>
       </section>
     </main>
 
     <!-- TAB 2: MEDIA PLAYBACK CONTROLS -->
-    <main class="tab-panel" id="tab-controls">
+    <main class="tab-panel" id="tab-controls" role="tabpanel">
       <section class="card">
         <div class="media-controls-grid">
           <button class="btn-media" id="btnSeekRewind">⏪ -10s</button>
@@ -94,20 +93,20 @@
             <span>🔊 Volume</span>
             <span id="volumeVal">100%</span>
           </div>
-          <input type="range" id="volumeSlider" min="0" max="100" value="100">
+          <input type="range" id="volumeSlider" min="0" max="100" value="100" aria-label="Volume slider">
         </div>
       </section>
     </main>
 
-    <!-- TAB 3: VIDEO VISUAL FILTERS -->
-    <main class="tab-panel" id="tab-filters">
+    <!-- TAB 3: VIDEO VISUAL FILTERS & SETTINGS -->
+    <main class="tab-panel" id="tab-filters" role="tabpanel">
       <section class="card">
         <div class="slider-group">
           <div class="slider-label">
             <span>☀️ Brightness</span>
             <span id="brightVal">100%</span>
           </div>
-          <input type="range" id="brightSlider" min="50" max="200" value="100">
+          <input type="range" id="brightSlider" min="50" max="200" value="100" aria-label="Brightness slider">
         </div>
 
         <div class="slider-group">
@@ -115,7 +114,7 @@
             <span>🌓 Contrast</span>
             <span id="contrastVal">100%</span>
           </div>
-          <input type="range" id="contrastSlider" min="50" max="200" value="100">
+          <input type="range" id="contrastSlider" min="50" max="200" value="100" aria-label="Contrast slider">
         </div>
 
         <div class="slider-group">
@@ -123,7 +122,7 @@
             <span>🎨 Saturation</span>
             <span id="satVal">100%</span>
           </div>
-          <input type="range" id="satSlider" min="0" max="200" value="100">
+          <input type="range" id="satSlider" min="0" max="200" value="100" aria-label="Saturation slider">
         </div>
 
         <div class="setting-row">
@@ -132,25 +131,22 @@
             <span class="setting-desc">High contrast dark room toggle</span>
           </div>
           <label class="switch">
-            <input type="checkbox" id="invertToggle">
+            <input type="checkbox" id="invertToggle" aria-label="Invert colors toggle">
             <span class="slider-switch"></span>
           </label>
         </div>
 
-        <button class="btn-stepper btn-reset" id="btnResetFilters" style="margin-top: 4px;">Reset All Filters</button>
+        <button class="btn-stepper btn-reset" id="btnResetFilters" style="margin-top: 2px;">Reset All Filters</button>
       </section>
-    </main>
 
-    <!-- TAB 4: SETTINGS & SHORTCUTS -->
-    <main class="tab-panel" id="tab-settings">
       <section class="card">
         <div class="setting-row">
           <div class="setting-info">
             <span class="setting-title">🔒 Lock Speed</span>
-            <span class="setting-desc">Auto-reapply speed on JioHotstar video changes</span>
+            <span class="setting-desc">Auto-reapply speed on video stream changes</span>
           </div>
           <label class="switch">
-            <input type="checkbox" id="rememberSpeedToggle" checked>
+            <input type="checkbox" id="rememberSpeedToggle" checked aria-label="Lock speed toggle">
             <span class="slider-switch"></span>
           </label>
         </div>
@@ -158,49 +154,12 @@
         <div class="setting-row">
           <div class="setting-info">
             <span class="setting-title">💬 On-Video HUD Badge</span>
-            <span class="setting-desc">Show speed indicator overlay on video</span>
+            <span class="setting-desc">Show speed badge overlay on video</span>
           </div>
           <label class="switch">
-            <input type="checkbox" id="hudToggle" checked>
+            <input type="checkbox" id="hudToggle" checked aria-label="On-video HUD toggle">
             <span class="slider-switch"></span>
           </label>
-        </div>
-
-        <div class="setting-row">
-          <div class="setting-info">
-            <span class="setting-title">⌨️ Keyboard Hotkeys</span>
-            <span class="setting-desc">Enable Z, X, C, S, D, P hotkeys on video page</span>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="hotkeysToggle" checked>
-            <span class="slider-switch"></span>
-          </label>
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="setting-title" style="margin-bottom: 6px;">⌨️ Hotkey Cheat Sheet</div>
-        <div class="shortcut-list">
-          <div class="shortcut-item">
-            <span>Decrease Speed by -0.1x</span>
-            <span class="kbd">Z or [</span>
-          </div>
-          <div class="shortcut-item">
-            <span>Increase Speed by +0.1x</span>
-            <span class="kbd">C or ]</span>
-          </div>
-          <div class="shortcut-item">
-            <span>Reset Speed to 1.0x</span>
-            <span class="kbd">X or \</span>
-          </div>
-          <div class="shortcut-item">
-            <span>Step Speed -0.5x / +0.5x</span>
-            <span class="kbd">S / D</span>
-          </div>
-          <div class="shortcut-item">
-            <span>Toggle Picture-in-Picture</span>
-            <span class="kbd">P</span>
-          </div>
         </div>
       </section>
     </main>
