@@ -3,7 +3,6 @@
 (function () {
   'use strict';
 
-  // Prevent multiple injections
   if (window.__JIO_HOTSTAR_CONTROLLER_INJECTED__) return;
   window.__JIO_HOTSTAR_CONTROLLER_INJECTED__ = true;
 
@@ -11,8 +10,10 @@
   let speedStep = 0.1;
   let rememberSpeed = true;
   let hudEnabled = true;
+  let overlayEnabled = true;
   let isRateLocking = false;
   let hudTimeout = null;
+  let overlayWidget = null;
 
   let videoFilters = {
     brightness: 100,
@@ -21,59 +22,71 @@
     invert: false
   };
 
+  // Domains to exclude (video calls)
+  const EXCLUDED_DOMAINS = [
+    'meet.google.com', 'zoom.us', 'teams.microsoft.com', 'teams.live.com',
+    'discord.com', 'whereby.com', 'webex.com', 'meet.jit.si', 'gather.town'
+  ];
+
+  function isExcludedDomain() {
+    const hostname = window.location.hostname.toLowerCase();
+    return EXCLUDED_DOMAINS.some(d => hostname.includes(d));
+  }
+
+  function isLiveStream(video) {
+    if (!isFinite(video.duration) || isNaN(video.duration)) return true;
+    if (video.duration === 0) return true;
+    return false;
+  }
+
+  if (isExcludedDomain()) return;
+
   // Load initial settings
-  chrome.storage.local.get(['speed', 'step', 'rememberSpeed', 'hudEnabled', 'filters'], (res) => {
+  chrome.storage.local.get(['speed', 'step', 'rememberSpeed', 'hudEnabled', 'overlayEnabled', 'filters'], (res) => {
     if (res.speed) currentSpeed = parseFloat(res.speed);
     if (res.step) speedStep = parseFloat(res.step);
     if (res.rememberSpeed !== undefined) rememberSpeed = res.rememberSpeed;
     if (res.hudEnabled !== undefined) hudEnabled = res.hudEnabled;
+    if (res.overlayEnabled !== undefined) overlayEnabled = res.overlayEnabled;
     if (res.filters) videoFilters = res.filters;
-
     applySpeedToAllVideos(currentSpeed, false);
     applyFiltersToAllVideos();
   });
 
-  // Keep track of observed videos
   const trackedVideos = new WeakSet();
 
-  // Find all video elements, including shadow DOMs if any
   function getAllVideos(root = document) {
     let videos = Array.from(root.querySelectorAll('video'));
-
-    // Search inside shadow roots
     const allElements = root.querySelectorAll('*');
     for (const el of allElements) {
-      if (el.shadowRoot) {
-        videos = videos.concat(getAllVideos(el.shadowRoot));
-      }
+      if (el.shadowRoot) videos = videos.concat(getAllVideos(el.shadowRoot));
     }
-    return videos;
+    return videos.filter(v => {
+      if (v.readyState > 0 && isLiveStream(v)) return false;
+      const rect = v.getBoundingClientRect();
+      if (rect.width < 80 && rect.height < 80 && rect.width > 0) return false;
+      return true;
+    });
   }
 
-  // Get primary active video (largest visible video or playing video)
   function getPrimaryVideo() {
     const videos = getAllVideos();
     if (videos.length === 0) return null;
-
-    // Return currently playing video first
-    const playing = videos.find(v => !v.paused && v.readyState > 2);
+    const playing = videos.find(v => !v.paused && v.readyState > 0);
     if (playing) return playing;
-
-    // Otherwise return largest visible video
+    const ready = videos.find(v => v.readyState > 0);
+    if (ready) return ready;
     return videos.reduce((best, curr) => {
-      const bRect = best.getBoundingClientRect();
-      const cRect = curr.getBoundingClientRect();
-      return (cRect.width * cRect.height > bRect.width * bRect.height) ? curr : best;
+      const bR = best.getBoundingClientRect(), cR = curr.getBoundingClientRect();
+      return (cR.width * cR.height > bR.width * bR.height) ? curr : best;
     }, videos[0]);
   }
 
-  // Attach event listeners to newly detected video elements
   function attachVideoListeners(video) {
     if (trackedVideos.has(video)) return;
     trackedVideos.add(video);
-
-    // Apply speed when video loads metadata or starts playing
     const enforceSpeed = () => {
+      if (video.readyState > 0 && isLiveStream(video)) return;
       if (rememberSpeed && currentSpeed !== 1.0) {
         if (Math.abs(video.playbackRate - currentSpeed) > 0.01) {
           isRateLocking = true;
@@ -82,13 +95,14 @@
         }
       }
       applyFiltersToVideo(video);
+      createOrUpdateOverlay();
     };
-
-    video.addEventListener('play', enforceSpeed);
-    video.addEventListener('loadedmetadata', enforceSpeed);
+    ['play', 'playing', 'loadeddata', 'loadedmetadata', 'canplay'].forEach(ev =>
+      video.addEventListener(ev, enforceSpeed)
+    );
     video.addEventListener('ratechange', () => {
       if (isRateLocking) return;
-      // If website script (like JioHotstar ad/quality shift) changes playbackRate, re-apply user speed if rememberSpeed is true
+      if (video.readyState > 0 && isLiveStream(video)) return;
       if (rememberSpeed && Math.abs(video.playbackRate - currentSpeed) > 0.01) {
         setTimeout(() => {
           isRateLocking = true;
@@ -97,73 +111,114 @@
         }, 50);
       }
     });
-
     enforceSpeed();
   }
 
-  // Monitor DOM for dynamically added video elements (e.g. JioHotstar single-page app navigation)
-  const observer = new MutationObserver(() => {
-    const videos = getAllVideos();
-    videos.forEach(attachVideoListeners);
-  });
+  const observer = new MutationObserver(() => getAllVideos().forEach(attachVideoListeners));
   observer.observe(document.documentElement, { childList: true, subtree: true });
-
-  // Initial attach
   getAllVideos().forEach(attachVideoListeners);
+  setInterval(() => {
+    getAllVideos().forEach(attachVideoListeners);
+    createOrUpdateOverlay();
+  }, 2000);
 
-  // Apply speed to all videos on page
+  // ──────────────────────────────────────────────
+  // Persistent Mini Overlay Widget on Video
+  // ──────────────────────────────────────────────
+  function createOrUpdateOverlay() {
+    if (!overlayEnabled) {
+      if (overlayWidget) { overlayWidget.remove(); overlayWidget = null; }
+      return;
+    }
+    const video = getPrimaryVideo();
+    if (!video) {
+      if (overlayWidget) { overlayWidget.remove(); overlayWidget = null; }
+      return;
+    }
+
+    const parent = video.parentElement || document.body;
+    if (getComputedStyle(parent).position === 'static') {
+      parent.style.position = 'relative';
+    }
+
+    if (!overlayWidget || !parent.contains(overlayWidget)) {
+      if (overlayWidget) overlayWidget.remove();
+      overlayWidget = document.createElement('div');
+      overlayWidget.id = 'jio-mini-overlay';
+      overlayWidget.innerHTML = `
+        <button class="jio-mini-btn" id="jio-mini-minus" title="Decrease speed">−</button>
+        <span class="jio-mini-speed" id="jio-mini-speed-val">${currentSpeed.toFixed(1)}x</span>
+        <button class="jio-mini-btn" id="jio-mini-plus" title="Increase speed">+</button>
+      `;
+      parent.appendChild(overlayWidget);
+
+      // Button event listeners
+      overlayWidget.querySelector('#jio-mini-minus').addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        applySpeedToAllVideos(currentSpeed - speedStep);
+      });
+      overlayWidget.querySelector('#jio-mini-plus').addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        applySpeedToAllVideos(currentSpeed + speedStep);
+      });
+      // Prevent click-through to video player controls
+      overlayWidget.addEventListener('click', e => e.stopPropagation());
+      overlayWidget.addEventListener('mousedown', e => e.stopPropagation());
+      overlayWidget.addEventListener('dblclick', e => e.stopPropagation());
+    }
+
+    // Update displayed speed
+    const speedEl = overlayWidget.querySelector('#jio-mini-speed-val');
+    if (speedEl) speedEl.textContent = `${currentSpeed.toFixed(1)}x`;
+  }
+
+  // ──────────────────────────────────────────────
+  // Speed & Filter Application
+  // ──────────────────────────────────────────────
   function applySpeedToAllVideos(speed, showHudNotification = true) {
     speed = Math.max(0.1, Math.min(16.0, parseFloat(speed.toFixed(2))));
     currentSpeed = speed;
-
     const videos = getAllVideos();
-    if (videos.length === 0) return;
-
     videos.forEach(video => {
+      if (video.readyState > 0 && isLiveStream(video)) return;
       try {
         isRateLocking = true;
         video.playbackRate = speed;
         video.preservesPitch = true;
         video.webkitPreservesPitch = true;
         isRateLocking = false;
-      } catch (err) {
-        console.warn('JioHotstar Controller: Could not set playback rate', err);
-      }
+      } catch (err) { /* ignore */ }
     });
-
-    // Save to storage
     chrome.storage.local.set({ speed });
-
-    // Notify background for badge
     chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', speed });
-
-    if (showHudNotification) {
-      showHUD(`⚡ ${speed.toFixed(2)}x Speed`);
+    createOrUpdateOverlay();
+    if (showHudNotification && videos.length > 0) {
+      showHUD(`${speed.toFixed(2)}x`, 'Speed');
     }
   }
 
-  // Apply visual CSS filters to videos
   function applyFiltersToVideo(video) {
     if (!video) return;
     const { brightness, contrast, saturation, invert } = videoFilters;
-    let filterStr = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
-    if (invert) filterStr += ' invert(100%)';
-    video.style.filter = filterStr;
+    let f = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
+    if (invert) f += ' invert(100%)';
+    video.style.filter = f;
   }
 
   function applyFiltersToAllVideos() {
     getAllVideos().forEach(applyFiltersToVideo);
   }
 
-  // Create HUD Toast on video
+  // ──────────────────────────────────────────────
+  // Transient HUD Toast
+  // ──────────────────────────────────────────────
   function showHUD(message, subtext = '') {
     if (!hudEnabled) return;
-
-    let hudContainer = document.getElementById('jio-speed-hud-container');
-    if (!hudContainer) {
-      hudContainer = document.createElement('div');
-      hudContainer.id = 'jio-speed-hud-container';
-      hudContainer.innerHTML = `
+    let hud = document.getElementById('jio-speed-hud-container');
+    if (!hud) {
+      hud = document.createElement('div');
+      hud.id = 'jio-speed-hud-container';
+      hud.innerHTML = `
         <div class="jio-speed-hud-badge">
           <div class="jio-speed-hud-icon">
             <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -172,99 +227,103 @@
           <span class="jio-speed-hud-subtext" id="jio-hud-sub"></span>
         </div>
       `;
-      
-      const primaryVid = getPrimaryVideo();
-      const parent = primaryVid ? (primaryVid.parentElement || document.body) : document.body;
-      if (getComputedStyle(parent).position === 'static') {
-        parent.style.position = 'relative';
-      }
-      parent.appendChild(hudContainer);
+      const vid = getPrimaryVideo();
+      const p = vid ? (vid.parentElement || document.body) : document.body;
+      if (getComputedStyle(p).position === 'static') p.style.position = 'relative';
+      p.appendChild(hud);
     }
-
     const msgEl = document.getElementById('jio-hud-msg');
     const subEl = document.getElementById('jio-hud-sub');
     if (msgEl) msgEl.textContent = message;
     if (subEl) subEl.textContent = subtext;
-
-    hudContainer.classList.add('hud-visible');
-
+    hud.classList.add('hud-visible');
     if (hudTimeout) clearTimeout(hudTimeout);
-    hudTimeout = setTimeout(() => {
-      hudContainer.classList.remove('hud-visible');
-    }, 1800);
+    hudTimeout = setTimeout(() => hud.classList.remove('hud-visible'), 1800);
   }
 
-  // Handle Playback Actions
+  // ──────────────────────────────────────────────
+  // Playback Actions
+  // ──────────────────────────────────────────────
   function togglePlay() {
-    const video = getPrimaryVideo();
-    if (!video) return;
-    if (video.paused) {
-      video.play();
-      showHUD('▶ Playing');
-    } else {
-      video.pause();
-      showHUD('⏸ Paused');
-    }
+    const v = getPrimaryVideo(); if (!v) return;
+    if (v.paused) { v.play(); showHUD('▶', 'Play'); }
+    else { v.pause(); showHUD('⏸', 'Pause'); }
   }
 
   function seekVideo(seconds) {
-    const video = getPrimaryVideo();
-    if (!video) return;
-    video.currentTime = Math.max(0, Math.min(video.duration || Infinity, video.currentTime + seconds));
-    showHUD(seconds > 0 ? `⏩ +${seconds}s` : `⏪ ${seconds}s`);
+    const v = getPrimaryVideo(); if (!v) return;
+    v.currentTime = Math.max(0, Math.min(v.duration || Infinity, v.currentTime + seconds));
+    showHUD(seconds > 0 ? `+${seconds}s` : `${seconds}s`, 'Seek');
   }
 
   async function togglePiP() {
-    const video = getPrimaryVideo();
-    if (!video) return;
+    const v = getPrimaryVideo(); if (!v) return;
     try {
-      if (document.pictureInPictureElement) {
-        await document.exitPictureInPicture();
-        showHUD('🖼️ Exited PiP');
-      } else {
-        await video.requestPictureInPicture();
-        showHUD('🖼️ Picture-in-Picture');
-      }
-    } catch (err) {
-      console.warn('JioHotstar Controller: PiP Error', err);
-      showHUD('⚠️ PiP Not Allowed');
-    }
+      if (document.pictureInPictureElement) { await document.exitPictureInPicture(); showHUD('PiP', 'Off'); }
+      else { await v.requestPictureInPicture(); showHUD('PiP', 'On'); }
+    } catch (err) { showHUD('PiP', 'N/A'); }
   }
 
-  // Message listener from popup and background service worker
+  function toggleMute() {
+    const v = getPrimaryVideo(); if (!v) return;
+    v.muted = !v.muted;
+    showHUD(v.muted ? '🔇' : '🔊', v.muted ? 'Muted' : 'Unmuted');
+  }
+
+  function setVolume(vol) {
+    const v = getPrimaryVideo(); if (!v) return;
+    v.volume = Math.max(0, Math.min(1, vol));
+    v.muted = false;
+  }
+
+  function formatTime(s) {
+    if (!s || !isFinite(s)) return '0:00';
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60);
+    return h > 0 ? `${h}:${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}` : `${m}:${sec.toString().padStart(2,'0')}`;
+  }
+
+  // ──────────────────────────────────────────────
+  // Message Listener from popup
+  // ──────────────────────────────────────────────
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    const video = getPrimaryVideo();
+
     if (request.type === 'GET_STATUS') {
-      const video = getPrimaryVideo();
+      if (!video) return false; // Don't respond — let other frames answer
       sendResponse({
-        hasVideo: !!video,
-        speed: currentSpeed,
-        paused: video ? video.paused : true,
-        muted: video ? video.muted : false,
-        volume: video ? video.volume : 1.0,
-        currentTime: video ? video.currentTime : 0,
-        duration: video ? video.duration : 0,
-        filters: videoFilters,
-        hudEnabled,
-        rememberSpeed
+        hasVideo: true, speed: currentSpeed, paused: video.paused,
+        muted: video.muted, volume: video.volume,
+        currentTime: video.currentTime, duration: video.duration,
+        filters: videoFilters, hudEnabled, overlayEnabled, rememberSpeed,
+        formattedTime: formatTime(video.currentTime),
+        formattedDuration: formatTime(video.duration),
+        isLive: isLiveStream(video)
       });
-    } else if (request.type === 'SET_SPEED') {
+      return true;
+    }
+
+    if (request.type === 'SET_SPEED') {
       applySpeedToAllVideos(request.speed);
-      sendResponse({ success: true });
+      sendResponse({ success: true, speed: currentSpeed });
     } else if (request.type === 'STEP_SPEED') {
       applySpeedToAllVideos(currentSpeed + request.delta);
-      sendResponse({ success: true });
+      sendResponse({ success: true, speed: currentSpeed });
     } else if (request.type === 'TOGGLE_PLAY') {
       togglePlay();
-      sendResponse({ success: true });
+      const v = getPrimaryVideo();
+      sendResponse({ success: true, paused: v ? v.paused : true });
     } else if (request.type === 'SEEK') {
       seekVideo(request.seconds);
       sendResponse({ success: true });
     } else if (request.type === 'TOGGLE_PIP') {
       togglePiP();
       sendResponse({ success: true });
+    } else if (request.type === 'TOGGLE_MUTE') {
+      toggleMute();
+      const v = getPrimaryVideo();
+      sendResponse({ success: true, muted: v ? v.muted : false });
     } else if (request.type === 'SET_VOLUME') {
-      const video = getPrimaryVideo();
-      if (video) video.volume = Math.max(0, Math.min(1, request.volume));
+      setVolume(request.volume);
       sendResponse({ success: true });
     } else if (request.type === 'SET_FILTERS') {
       videoFilters = { ...videoFilters, ...request.filters };
@@ -273,8 +332,11 @@
       sendResponse({ success: true });
     } else if (request.type === 'UPDATE_SETTINGS') {
       if (request.hudEnabled !== undefined) hudEnabled = request.hudEnabled;
+      if (request.overlayEnabled !== undefined) overlayEnabled = request.overlayEnabled;
       if (request.rememberSpeed !== undefined) rememberSpeed = request.rememberSpeed;
       if (request.step !== undefined) speedStep = request.step;
+      chrome.storage.local.set({ hudEnabled, overlayEnabled, rememberSpeed, step: speedStep });
+      createOrUpdateOverlay();
       sendResponse({ success: true });
     }
     return true;
