@@ -1,4 +1,4 @@
-// JioHotstar & Universal Video Speed & Playback Controller Content Script
+// Universal Video Speed & Playback Controller — Content Script
 
 (function () {
   'use strict';
@@ -11,6 +11,7 @@
   let rememberSpeed = true;
   let hudEnabled = true;
   let overlayEnabled = true;
+  let extensionDisabled = false;
   let isRateLocking = false;
   let hudTimeout = null;
   let overlayWidget = null;
@@ -22,7 +23,6 @@
     invert: false
   };
 
-  // Domains to exclude (video calls)
   const EXCLUDED_DOMAINS = [
     'meet.google.com', 'zoom.us', 'teams.microsoft.com', 'teams.live.com',
     'discord.com', 'whereby.com', 'webex.com', 'meet.jit.si', 'gather.town'
@@ -42,15 +42,19 @@
   if (isExcludedDomain()) return;
 
   // Load initial settings
-  chrome.storage.local.get(['speed', 'step', 'rememberSpeed', 'hudEnabled', 'overlayEnabled', 'filters'], (res) => {
+  chrome.storage.local.get(['speed', 'step', 'rememberSpeed', 'hudEnabled', 'overlayEnabled', 'filters', 'extensionDisabled'], (res) => {
     if (res.speed) currentSpeed = parseFloat(res.speed);
     if (res.step) speedStep = parseFloat(res.step);
     if (res.rememberSpeed !== undefined) rememberSpeed = res.rememberSpeed;
     if (res.hudEnabled !== undefined) hudEnabled = res.hudEnabled;
     if (res.overlayEnabled !== undefined) overlayEnabled = res.overlayEnabled;
     if (res.filters) videoFilters = res.filters;
-    applySpeedToAllVideos(currentSpeed, false);
-    applyFiltersToAllVideos();
+    extensionDisabled = !!res.extensionDisabled;
+
+    if (!extensionDisabled) {
+      applySpeedToAllVideos(currentSpeed, false);
+      applyFiltersToAllVideos();
+    }
   });
 
   const trackedVideos = new WeakSet();
@@ -86,6 +90,7 @@
     if (trackedVideos.has(video)) return;
     trackedVideos.add(video);
     const enforceSpeed = () => {
+      if (extensionDisabled) return;
       if (video.readyState > 0 && isLiveStream(video)) return;
       if (rememberSpeed && currentSpeed !== 1.0) {
         if (Math.abs(video.playbackRate - currentSpeed) > 0.01) {
@@ -101,10 +106,12 @@
       video.addEventListener(ev, enforceSpeed)
     );
     video.addEventListener('ratechange', () => {
+      if (extensionDisabled) return;
       if (isRateLocking) return;
       if (video.readyState > 0 && isLiveStream(video)) return;
       if (rememberSpeed && Math.abs(video.playbackRate - currentSpeed) > 0.01) {
         setTimeout(() => {
+          if (extensionDisabled) return;
           isRateLocking = true;
           video.playbackRate = currentSpeed;
           isRateLocking = false;
@@ -119,14 +126,63 @@
   getAllVideos().forEach(attachVideoListeners);
   setInterval(() => {
     getAllVideos().forEach(attachVideoListeners);
-    createOrUpdateOverlay();
+    if (!extensionDisabled) createOrUpdateOverlay();
   }, 2000);
 
-  // ──────────────────────────────────────────────
-  // Persistent Mini Overlay Widget on Video
-  // ──────────────────────────────────────────────
+  function formatOverlaySpeed(speed) {
+    const s = parseFloat(speed.toFixed(2));
+    if (s % 1 === 0) return `${s.toFixed(1)}x`;
+    return `${s}x`;
+  }
+
+  // ──────────────────────────────────────
+  // Disable / Enable Extension
+  // ──────────────────────────────────────
+  function disableExtension() {
+    extensionDisabled = true;
+    currentSpeed = 1.0;
+    chrome.storage.local.set({ extensionDisabled: true, speed: 1.0 });
+
+    // Reset all videos to native 1x speed
+    getAllVideos().forEach(video => {
+      try {
+        isRateLocking = true;
+        video.playbackRate = 1.0;
+        isRateLocking = false;
+        video.style.filter = '';
+      } catch (e) { /* ignore */ }
+    });
+
+    // Remove overlay and HUD
+    if (overlayWidget) { overlayWidget.remove(); overlayWidget = null; }
+    const hud = document.getElementById('jio-speed-hud-container');
+    if (hud) hud.remove();
+
+    chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', speed: 1.0 }, () => {
+      if (chrome.runtime.lastError) { /* ignore */ }
+    });
+  }
+
+  function enableExtension() {
+    extensionDisabled = false;
+    chrome.storage.local.set({ extensionDisabled: false });
+    // Reload saved speed
+    chrome.storage.local.get(['speed'], (res) => {
+      if (res.speed && res.speed !== 1.0) {
+        currentSpeed = parseFloat(res.speed);
+      } else {
+        currentSpeed = 1.0;
+      }
+      applySpeedToAllVideos(currentSpeed, false);
+      applyFiltersToAllVideos();
+    });
+  }
+
+  // ──────────────────────────────────────
+  // Overlay Widget (mid-left of video)
+  // ──────────────────────────────────────
   function createOrUpdateOverlay() {
-    if (!overlayEnabled) {
+    if (!overlayEnabled || extensionDisabled) {
       if (overlayWidget) { overlayWidget.remove(); overlayWidget = null; }
       return;
     }
@@ -136,7 +192,7 @@
       return;
     }
 
-    const parent = video.parentElement || document.body;
+    const parent = video.closest('.html5-video-player, [class*="player-container"], [class*="video-container"]') || video.parentElement || document.body;
     if (getComputedStyle(parent).position === 'static') {
       parent.style.position = 'relative';
     }
@@ -146,36 +202,49 @@
       overlayWidget = document.createElement('div');
       overlayWidget.id = 'jio-mini-overlay';
       overlayWidget.innerHTML = `
-        <button class="jio-mini-btn" id="jio-mini-minus" title="Decrease speed">−</button>
-        <span class="jio-mini-speed" id="jio-mini-speed-val">${currentSpeed.toFixed(1)}x</span>
-        <button class="jio-mini-btn" id="jio-mini-plus" title="Increase speed">+</button>
+        <button class="jio-mini-btn" id="jio-mini-minus" title="−${speedStep}x">−</button>
+        <button class="jio-mini-btn jio-mini-btn-fine" id="jio-mini-minus-005" title="−0.05x">−.05</button>
+        <span class="jio-mini-speed" id="jio-mini-speed-val" title="Reset to 1.0x">${formatOverlaySpeed(currentSpeed)}</span>
+        <button class="jio-mini-btn jio-mini-btn-fine" id="jio-mini-plus-005" title="+0.05x">+.05</button>
+        <button class="jio-mini-btn" id="jio-mini-plus" title="+${speedStep}x">+</button>
       `;
       parent.appendChild(overlayWidget);
 
-      // Button event listeners
       overlayWidget.querySelector('#jio-mini-minus').addEventListener('click', (e) => {
         e.preventDefault(); e.stopPropagation();
         applySpeedToAllVideos(currentSpeed - speedStep);
+      });
+      overlayWidget.querySelector('#jio-mini-minus-005').addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        applySpeedToAllVideos(currentSpeed - 0.05);
+      });
+      overlayWidget.querySelector('#jio-mini-speed-val').addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        applySpeedToAllVideos(1.0);
+      });
+      overlayWidget.querySelector('#jio-mini-plus-005').addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        applySpeedToAllVideos(currentSpeed + 0.05);
       });
       overlayWidget.querySelector('#jio-mini-plus').addEventListener('click', (e) => {
         e.preventDefault(); e.stopPropagation();
         applySpeedToAllVideos(currentSpeed + speedStep);
       });
-      // Prevent click-through to video player controls
-      overlayWidget.addEventListener('click', e => e.stopPropagation());
-      overlayWidget.addEventListener('mousedown', e => e.stopPropagation());
-      overlayWidget.addEventListener('dblclick', e => e.stopPropagation());
+
+      ['click', 'mousedown', 'mouseup', 'dblclick', 'contextmenu'].forEach(evt => {
+        overlayWidget.addEventListener(evt, e => e.stopPropagation());
+      });
     }
 
-    // Update displayed speed
     const speedEl = overlayWidget.querySelector('#jio-mini-speed-val');
-    if (speedEl) speedEl.textContent = `${currentSpeed.toFixed(1)}x`;
+    if (speedEl) speedEl.textContent = formatOverlaySpeed(currentSpeed);
   }
 
-  // ──────────────────────────────────────────────
+  // ──────────────────────────────────────
   // Speed & Filter Application
-  // ──────────────────────────────────────────────
+  // ──────────────────────────────────────
   function applySpeedToAllVideos(speed, showHudNotification = true) {
+    if (extensionDisabled) return;
     speed = Math.max(0.1, Math.min(16.0, parseFloat(speed.toFixed(2))));
     currentSpeed = speed;
     const videos = getAllVideos();
@@ -190,15 +259,17 @@
       } catch (err) { /* ignore */ }
     });
     chrome.storage.local.set({ speed });
-    chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', speed });
+    chrome.runtime.sendMessage({ type: 'UPDATE_BADGE', speed }, () => {
+      if (chrome.runtime.lastError) { /* ignore */ }
+    });
     createOrUpdateOverlay();
     if (showHudNotification && videos.length > 0) {
-      showHUD(`${speed.toFixed(2)}x`, 'Speed');
+      showHUD(formatOverlaySpeed(speed), 'Speed');
     }
   }
 
   function applyFiltersToVideo(video) {
-    if (!video) return;
+    if (!video || extensionDisabled) return;
     const { brightness, contrast, saturation, invert } = videoFilters;
     let f = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%)`;
     if (invert) f += ' invert(100%)';
@@ -206,23 +277,21 @@
   }
 
   function applyFiltersToAllVideos() {
+    if (extensionDisabled) return;
     getAllVideos().forEach(applyFiltersToVideo);
   }
 
-  // ──────────────────────────────────────────────
-  // Transient HUD Toast
-  // ──────────────────────────────────────────────
+  // ──────────────────────────────────────
+  // HUD Toast
+  // ──────────────────────────────────────
   function showHUD(message, subtext = '') {
-    if (!hudEnabled) return;
+    if (!hudEnabled || extensionDisabled) return;
     let hud = document.getElementById('jio-speed-hud-container');
     if (!hud) {
       hud = document.createElement('div');
       hud.id = 'jio-speed-hud-container';
       hud.innerHTML = `
         <div class="jio-speed-hud-badge">
-          <div class="jio-speed-hud-icon">
-            <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-          </div>
           <span class="jio-speed-hud-text" id="jio-hud-msg"></span>
           <span class="jio-speed-hud-subtext" id="jio-hud-sub"></span>
         </div>
@@ -241,9 +310,9 @@
     hudTimeout = setTimeout(() => hud.classList.remove('hud-visible'), 1800);
   }
 
-  // ──────────────────────────────────────────────
+  // ──────────────────────────────────────
   // Playback Actions
-  // ──────────────────────────────────────────────
+  // ──────────────────────────────────────
   function togglePlay() {
     const v = getPrimaryVideo(); if (!v) return;
     if (v.paused) { v.play(); showHUD('▶', 'Play'); }
@@ -259,15 +328,14 @@
   async function togglePiP() {
     const v = getPrimaryVideo(); if (!v) return;
     try {
-      if (document.pictureInPictureElement) { await document.exitPictureInPicture(); showHUD('PiP', 'Off'); }
-      else { await v.requestPictureInPicture(); showHUD('PiP', 'On'); }
-    } catch (err) { showHUD('PiP', 'N/A'); }
+      if (document.pictureInPictureElement) { await document.exitPictureInPicture(); }
+      else { await v.requestPictureInPicture(); }
+    } catch (err) { /* ignore */ }
   }
 
   function toggleMute() {
     const v = getPrimaryVideo(); if (!v) return;
     v.muted = !v.muted;
-    showHUD(v.muted ? '🔇' : '🔊', v.muted ? 'Muted' : 'Unmuted');
   }
 
   function setVolume(vol) {
@@ -282,19 +350,20 @@
     return h > 0 ? `${h}:${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}` : `${m}:${sec.toString().padStart(2,'0')}`;
   }
 
-  // ──────────────────────────────────────────────
-  // Message Listener from popup
-  // ──────────────────────────────────────────────
+  // ──────────────────────────────────────
+  // Message Listener
+  // ──────────────────────────────────────
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const video = getPrimaryVideo();
 
     if (request.type === 'GET_STATUS') {
-      if (!video) return false; // Don't respond — let other frames answer
+      if (!video) return false;
       sendResponse({
         hasVideo: true, speed: currentSpeed, paused: video.paused,
         muted: video.muted, volume: video.volume,
         currentTime: video.currentTime, duration: video.duration,
         filters: videoFilters, hudEnabled, overlayEnabled, rememberSpeed,
+        step: speedStep, extensionDisabled,
         formattedTime: formatTime(video.currentTime),
         formattedDuration: formatTime(video.duration),
         isLive: isLiveStream(video)
@@ -302,7 +371,13 @@
       return true;
     }
 
-    if (request.type === 'SET_SPEED') {
+    if (request.type === 'DISABLE_EXTENSION') {
+      disableExtension();
+      sendResponse({ success: true });
+    } else if (request.type === 'ENABLE_EXTENSION') {
+      enableExtension();
+      sendResponse({ success: true });
+    } else if (request.type === 'SET_SPEED') {
       applySpeedToAllVideos(request.speed);
       sendResponse({ success: true, speed: currentSpeed });
     } else if (request.type === 'STEP_SPEED') {

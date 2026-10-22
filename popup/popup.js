@@ -1,4 +1,4 @@
-// Popup Controller Logic for JioHotstar Speed & Playback Extension
+// Popup Controller Logic — Speed & Playback Extension
 
 document.addEventListener('DOMContentLoaded', async () => {
 
@@ -15,49 +15,60 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // ── DOM refs ──
-  const speedDisplay       = document.getElementById('speedDisplay');
-  const statusPill         = document.getElementById('videoStatusPill');
-  const statusText         = document.getElementById('videoStatusText');
+  const popupContainer      = document.getElementById('popupContainer');
+  const speedDisplay        = document.getElementById('speedDisplay');
+  const statusPill          = document.getElementById('videoStatusPill');
+  const statusText          = document.getElementById('videoStatusText');
 
-  const btnMinus05         = document.getElementById('btnMinus05');
-  const btnMinus01         = document.getElementById('btnMinus01');
-  const btnReset           = document.getElementById('btnReset');
-  const btnPlus01          = document.getElementById('btnPlus01');
-  const btnPlus05          = document.getElementById('btnPlus05');
+  const btnDisable          = document.getElementById('btnDisable');
+  const disableLabel        = document.getElementById('disableLabel');
+  const disableDesc         = document.getElementById('disableDesc');
 
-  const presetChips        = document.querySelectorAll('.preset-chip');
-  const customSpeedInput   = document.getElementById('customSpeedInput');
-  const btnApplyCustom     = document.getElementById('btnApplyCustom');
+  const btnMinus05          = document.getElementById('btnMinus05');
+  const btnMinus01          = document.getElementById('btnMinus01');
+  const btnMinus005         = document.getElementById('btnMinus005');
+  const btnReset            = document.getElementById('btnReset');
+  const btnPlus005          = document.getElementById('btnPlus005');
+  const btnPlus01           = document.getElementById('btnPlus01');
+  const btnPlus05           = document.getElementById('btnPlus05');
 
-  const btnSeekBack        = document.getElementById('btnSeekBack');
-  const btnPlayPause       = document.getElementById('btnPlayPause');
-  const btnSeekFwd         = document.getElementById('btnSeekFwd');
-  const btnSeekBack5       = document.getElementById('btnSeekBack5');
-  const btnSeekFwd5        = document.getElementById('btnSeekFwd5');
-  const btnTogglePip       = document.getElementById('btnTogglePip');
-  const btnToggleMute      = document.getElementById('btnToggleMute');
-  const btnFullscreen      = document.getElementById('btnFullscreen');
+  const stepOptBtns         = document.querySelectorAll('.step-opt-btn');
+  let activeStep            = 0.10;
 
-  const volumeSlider       = document.getElementById('volumeSlider');
-  const volumeVal          = document.getElementById('volumeVal');
+  const presetChips         = document.querySelectorAll('.preset-chip');
+  const customSpeedInput    = document.getElementById('customSpeedInput');
+  const btnApplyCustom      = document.getElementById('btnApplyCustom');
 
-  const brightSlider       = document.getElementById('brightSlider');
-  const brightVal          = document.getElementById('brightVal');
-  const contrastSlider     = document.getElementById('contrastSlider');
-  const contrastVal        = document.getElementById('contrastVal');
-  const satSlider          = document.getElementById('satSlider');
-  const satVal             = document.getElementById('satVal');
-  const invertToggle       = document.getElementById('invertToggle');
-  const btnResetFilters    = document.getElementById('btnResetFilters');
+  const btnSeekBack         = document.getElementById('btnSeekBack');
+  const btnPlayPause        = document.getElementById('btnPlayPause');
+  const btnSeekFwd          = document.getElementById('btnSeekFwd');
+  const btnSeekBack5        = document.getElementById('btnSeekBack5');
+  const btnSeekFwd5         = document.getElementById('btnSeekFwd5');
+  const btnTogglePip        = document.getElementById('btnTogglePip');
+  const btnToggleMute       = document.getElementById('btnToggleMute');
+  const btnFullscreen       = document.getElementById('btnFullscreen');
+
+  const volumeSlider        = document.getElementById('volumeSlider');
+  const volumeVal           = document.getElementById('volumeVal');
+
+  const brightSlider        = document.getElementById('brightSlider');
+  const brightVal           = document.getElementById('brightVal');
+  const contrastSlider      = document.getElementById('contrastSlider');
+  const contrastVal         = document.getElementById('contrastVal');
+  const satSlider           = document.getElementById('satSlider');
+  const satVal              = document.getElementById('satVal');
+  const invertToggle        = document.getElementById('invertToggle');
+  const btnResetFilters     = document.getElementById('btnResetFilters');
 
   const rememberSpeedToggle = document.getElementById('rememberSpeedToggle');
-  const hudToggle          = document.getElementById('hudToggle');
-  const overlayToggle      = document.getElementById('overlayToggle');
+  const hudToggle           = document.getElementById('hudToggle');
+  const overlayToggle       = document.getElementById('overlayToggle');
 
   let tabId = null;
   let activeSpeed = 1.0;
+  let extensionDisabled = false;
 
-  // ── Helper: send message to tab, with fallback for no-video frames ──
+  // ── Helpers ──
   async function getActiveTab() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     return tab;
@@ -67,7 +78,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!tabId) return;
     chrome.tabs.sendMessage(tabId, message, (res) => {
       if (chrome.runtime.lastError) {
-        // No content script or no video in any frame — try fallback after short delay
         if (message.type === 'GET_STATUS') {
           setTimeout(() => {
             chrome.tabs.sendMessage(tabId, message, (res2) => {
@@ -78,8 +88,6 @@ document.addEventListener('DOMContentLoaded', async () => {
               }
             });
           }, 500);
-        } else {
-          // For action messages, just ignore errors
         }
       } else if (callback) {
         callback(res);
@@ -87,14 +95,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // ── Status pill ──
+  // ── Status ──
   function updateStatus(hasVideo) {
+    if (extensionDisabled) {
+      statusPill.classList.remove('active');
+      statusPill.classList.add('disabled');
+      statusText.textContent = 'Paused';
+      return;
+    }
+    statusPill.classList.remove('disabled');
     if (hasVideo) {
       statusPill.classList.add('active');
-      statusText.textContent = 'Video Active';
+      statusText.textContent = 'Active';
     } else {
       statusPill.classList.remove('active');
-      statusText.textContent = 'No Video Found';
+      statusText.textContent = 'No Video';
+    }
+  }
+
+  // ── Disable/Enable UI ──
+  function updateDisableUI() {
+    if (extensionDisabled) {
+      btnDisable.textContent = 'Enable';
+      btnDisable.classList.add('is-disabled');
+      disableLabel.textContent = 'Extension Paused';
+      disableDesc.textContent = 'Native player controls active';
+      popupContainer.classList.add('ext-disabled');
+      updateStatus(false);
+    } else {
+      btnDisable.textContent = 'Disable';
+      btnDisable.classList.remove('is-disabled');
+      disableLabel.textContent = 'Extension Active';
+      disableDesc.textContent = 'Speed control is running';
+      popupContainer.classList.remove('ext-disabled');
     }
   }
 
@@ -108,16 +141,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // ── Init: fetch status from content ──
+  // ── Init ──
   const tab = await getActiveTab();
   if (tab) {
     tabId = tab.id;
+
+    // Load disabled state
+    chrome.storage.local.get(['extensionDisabled'], (items) => {
+      extensionDisabled = !!items.extensionDisabled;
+      updateDisableUI();
+    });
+
     msg({ type: 'GET_STATUS' }, (res) => {
       if (!res) { updateStatus(false); return; }
       updateStatus(res.hasVideo);
       updateSpeedUI(res.speed);
       btnPlayPause.textContent = res.paused ? '▶ Play' : '⏸ Pause';
-      btnToggleMute.textContent = res.muted ? '🔊 Unmute' : '🔇 Mute';
+      btnToggleMute.textContent = res.muted ? 'Unmute' : 'Mute';
       const v = Math.round((res.volume || 1) * 100);
       volumeSlider.value = v;
       volumeVal.textContent = `${v}%`;
@@ -133,11 +173,46 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (res.rememberSpeed !== undefined) rememberSpeedToggle.checked = res.rememberSpeed;
       if (res.hudEnabled !== undefined) hudToggle.checked = res.hudEnabled;
       if (res.overlayEnabled !== undefined) overlayToggle.checked = res.overlayEnabled;
+      if (res.step !== undefined) updateStepUI(res.step);
+      if (res.extensionDisabled !== undefined) {
+        extensionDisabled = res.extensionDisabled;
+        updateDisableUI();
+      }
+    });
+  } else {
+    chrome.storage.local.get(['step', 'extensionDisabled'], (items) => {
+      if (items.step) updateStepUI(items.step);
+      extensionDisabled = !!items.extensionDisabled;
+      updateDisableUI();
     });
   }
 
+  // ── Disable toggle ──
+  btnDisable.addEventListener('click', () => {
+    extensionDisabled = !extensionDisabled;
+    chrome.storage.local.set({ extensionDisabled });
+    updateDisableUI();
+
+    if (extensionDisabled) {
+      // Reset speed to 1.0 and tell content script to disable
+      updateSpeedUI(1.0);
+      msg({ type: 'DISABLE_EXTENSION' });
+    } else {
+      // Re-enable
+      msg({ type: 'ENABLE_EXTENSION' });
+      // Re-fetch status
+      msg({ type: 'GET_STATUS' }, (res) => {
+        if (res) {
+          updateStatus(res.hasVideo);
+          updateSpeedUI(res.speed);
+        }
+      });
+    }
+  });
+
   // ── Speed actions ──
   function setSpeed(s) {
+    if (extensionDisabled) return;
     s = Math.max(0.1, Math.min(16, parseFloat(s)));
     updateSpeedUI(s);
     msg({ type: 'SET_SPEED', speed: s });
@@ -145,7 +220,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   btnMinus05.addEventListener('click', () => setSpeed(activeSpeed - 0.5));
   btnMinus01.addEventListener('click', () => setSpeed(activeSpeed - 0.1));
+  btnMinus005.addEventListener('click', () => setSpeed(activeSpeed - 0.05));
   btnReset.addEventListener('click', () => setSpeed(1.0));
+  btnPlus005.addEventListener('click', () => setSpeed(activeSpeed + 0.05));
   btnPlus01.addEventListener('click', () => setSpeed(activeSpeed + 0.1));
   btnPlus05.addEventListener('click', () => setSpeed(activeSpeed + 0.5));
 
@@ -164,7 +241,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // ── Playback actions ──
+  // ── Playback ──
   btnPlayPause.addEventListener('click', () => {
     msg({ type: 'TOGGLE_PLAY' }, (res) => {
       if (res) btnPlayPause.textContent = res.paused ? '▶ Play' : '⏸ Pause';
@@ -180,12 +257,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   btnToggleMute.addEventListener('click', () => {
     msg({ type: 'TOGGLE_MUTE' }, (res) => {
-      if (res) btnToggleMute.textContent = res.muted ? '🔊 Unmute' : '🔇 Mute';
+      if (res) btnToggleMute.textContent = res.muted ? 'Unmute' : 'Mute';
     });
   });
 
   btnFullscreen.addEventListener('click', () => {
-    // Execute fullscreen request in the content script context
     if (!tabId) return;
     chrome.scripting.executeScript({
       target: { tabId, allFrames: true },
@@ -209,7 +285,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     msg({ type: 'SET_VOLUME', volume: val / 100 });
   });
 
-  // ── Filter sliders ──
+  // ── Filters ──
   function pushFilters() {
     const filters = {
       brightness: parseInt(brightSlider.value, 10),
@@ -234,12 +310,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     pushFilters();
   });
 
-  // ── Settings toggles ──
+  // ── Settings ──
+  function updateStepUI(step) {
+    activeStep = parseFloat(step);
+    stepOptBtns.forEach(btn => {
+      const v = parseFloat(btn.dataset.step);
+      btn.classList.toggle('active', Math.abs(v - activeStep) < 0.001);
+    });
+  }
+
+  stepOptBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      updateStepUI(parseFloat(btn.dataset.step));
+      pushSettings();
+    });
+  });
+
   function pushSettings() {
     const s = {
       rememberSpeed: rememberSpeedToggle.checked,
       hudEnabled: hudToggle.checked,
-      overlayEnabled: overlayToggle.checked
+      overlayEnabled: overlayToggle.checked,
+      step: activeStep
     };
     chrome.storage.local.set(s);
     msg({ type: 'UPDATE_SETTINGS', ...s });

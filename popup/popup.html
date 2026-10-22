@@ -3,21 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JioHotstar Speed Controller</title>
+  <title>Playback Controller</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div class="popup-container">
+  <div class="popup-container" id="popupContainer">
 
-    <!-- ── Header ── -->
+    <!-- Header -->
     <header class="header">
       <div class="header-brand">
         <div class="header-icon">
           <img src="../icons/icon32.png" alt="Logo">
         </div>
         <div>
-          <div class="header-title">JioHotstar Speed</div>
-          <div class="header-subtitle">Playback Controller</div>
+          <div class="header-title">Speed Controller</div>
+          <div class="header-subtitle">Playback Control</div>
         </div>
       </div>
       <div class="status-pill" id="videoStatusPill">
@@ -26,18 +26,26 @@
       </div>
     </header>
 
-    <!-- ── Tab Navigation ── -->
+    <!-- Disable / Enable bar -->
+    <div class="disable-bar">
+      <div class="disable-bar-info">
+        <span class="disable-bar-title" id="disableLabel">Extension Active</span>
+        <span class="disable-bar-desc" id="disableDesc">Speed control is running</span>
+      </div>
+      <button class="btn-disable" id="btnDisable">Disable</button>
+    </div>
+
+    <!-- Tabs -->
     <nav class="tabs-nav" role="tablist">
-      <button class="tab-btn active" data-tab="tab-speed" role="tab">⚡ Speed</button>
-      <button class="tab-btn" data-tab="tab-playback" role="tab">🎬 Playback</button>
-      <button class="tab-btn" data-tab="tab-enhance" role="tab">🎨 Enhance</button>
-      <button class="tab-btn" data-tab="tab-settings" role="tab">⚙️ Settings</button>
+      <button class="tab-btn active" data-tab="tab-speed" role="tab">Speed</button>
+      <button class="tab-btn" data-tab="tab-playback" role="tab">Playback</button>
+      <button class="tab-btn" data-tab="tab-enhance" role="tab">Enhance</button>
+      <button class="tab-btn" data-tab="tab-settings" role="tab">Settings</button>
     </nav>
 
-    <!-- ══════════ TAB: Speed ══════════ -->
+    <!-- TAB: Speed -->
     <section class="tab-panel active" id="tab-speed" role="tabpanel">
       <div class="card">
-        <!-- Hero Speed -->
         <div class="speed-hero">
           <div class="speed-value-row">
             <span class="speed-value-display" id="speedDisplay">1.00</span>
@@ -46,16 +54,16 @@
           <div class="speed-label">Playback Speed</div>
         </div>
 
-        <!-- Steppers -->
         <div class="stepper-row">
-          <button class="btn-step" id="btnMinus05" title="-0.5x">−0.5</button>
-          <button class="btn-step" id="btnMinus01" title="-0.1x">−0.1</button>
-          <button class="btn-step reset" id="btnReset" title="Reset to 1.0x">1.0x</button>
-          <button class="btn-step" id="btnPlus01" title="+0.1x">+0.1</button>
-          <button class="btn-step" id="btnPlus05" title="+0.5x">+0.5</button>
+          <button class="btn-step" id="btnMinus05">−0.5</button>
+          <button class="btn-step" id="btnMinus01">−0.1</button>
+          <button class="btn-step" id="btnMinus005">−.05</button>
+          <button class="btn-step reset" id="btnReset">1.0x</button>
+          <button class="btn-step" id="btnPlus005">+.05</button>
+          <button class="btn-step" id="btnPlus01">+0.1</button>
+          <button class="btn-step" id="btnPlus05">+0.5</button>
         </div>
 
-        <!-- Presets -->
         <div class="presets-grid" id="presetsContainer">
           <button class="preset-chip" data-speed="0.25">0.25</button>
           <button class="preset-chip" data-speed="0.5">0.5</button>
@@ -69,7 +77,6 @@
           <button class="preset-chip" data-speed="3.0">3.0</button>
         </div>
 
-        <!-- Custom -->
         <div class="custom-row">
           <input type="number" id="customSpeedInput" class="custom-input" placeholder="e.g. 1.85" step="0.05" min="0.1" max="16" aria-label="Custom speed">
           <button class="btn-apply" id="btnApplyCustom">Apply</button>
@@ -77,32 +84,29 @@
       </div>
     </section>
 
-    <!-- ══════════ TAB: Playback ══════════ -->
+    <!-- TAB: Playback -->
     <section class="tab-panel" id="tab-playback" role="tabpanel">
       <div class="card">
-        <div class="section-label">Transport Controls</div>
+        <div class="section-label">Transport</div>
         <div class="controls-row">
           <button class="btn-ctrl" id="btnSeekBack">⏪ −10s</button>
           <button class="btn-ctrl primary" id="btnPlayPause">▶ Play</button>
           <button class="btn-ctrl" id="btnSeekFwd">⏩ +10s</button>
         </div>
-
         <div class="controls-row">
           <button class="btn-ctrl" id="btnSeekBack5">⏪ −5s</button>
           <button class="btn-ctrl" id="btnToggleMute">🔇 Mute</button>
           <button class="btn-ctrl" id="btnSeekFwd5">⏩ +5s</button>
         </div>
-
         <div class="controls-row-2">
-          <button class="btn-ctrl" id="btnTogglePip">🖼 Picture-in-Pic</button>
-          <button class="btn-ctrl" id="btnFullscreen">⛶ Fullscreen</button>
+          <button class="btn-ctrl" id="btnTogglePip">PiP</button>
+          <button class="btn-ctrl" id="btnFullscreen">Fullscreen</button>
         </div>
       </div>
-
       <div class="card">
         <div class="slider-group">
           <div class="slider-label">
-            <span class="slider-label-name">🔊 Volume</span>
+            <span class="slider-label-name">Volume</span>
             <span class="slider-label-value" id="volumeVal">100%</span>
           </div>
           <input type="range" id="volumeSlider" min="0" max="100" value="100">
@@ -110,108 +114,109 @@
       </div>
     </section>
 
-    <!-- ══════════ TAB: Enhance ══════════ -->
+    <!-- TAB: Enhance -->
     <section class="tab-panel" id="tab-enhance" role="tabpanel">
       <div class="card">
         <div class="section-label">Video Filters</div>
-
         <div class="slider-group">
           <div class="slider-label">
-            <span class="slider-label-name">☀️ Brightness</span>
+            <span class="slider-label-name">Brightness</span>
             <span class="slider-label-value" id="brightVal">100%</span>
           </div>
           <input type="range" id="brightSlider" min="50" max="200" value="100">
         </div>
-
         <div class="slider-group">
           <div class="slider-label">
-            <span class="slider-label-name">🌓 Contrast</span>
+            <span class="slider-label-name">Contrast</span>
             <span class="slider-label-value" id="contrastVal">100%</span>
           </div>
           <input type="range" id="contrastSlider" min="50" max="200" value="100">
         </div>
-
         <div class="slider-group">
           <div class="slider-label">
-            <span class="slider-label-name">🎨 Saturation</span>
+            <span class="slider-label-name">Saturation</span>
             <span class="slider-label-value" id="satVal">100%</span>
           </div>
           <input type="range" id="satSlider" min="0" max="200" value="100">
         </div>
-
         <div class="setting-row">
           <div class="setting-info">
-            <span class="setting-title">🌙 Invert Colors</span>
-            <span class="setting-desc">High contrast mode</span>
+            <span class="setting-title">Invert Colors</span>
           </div>
           <label class="switch">
             <input type="checkbox" id="invertToggle">
             <span class="switch-track"></span>
           </label>
         </div>
-
-        <button class="btn-step reset" id="btnResetFilters">Reset All Filters</button>
+        <button class="btn-step reset" id="btnResetFilters">Reset Filters</button>
       </div>
     </section>
 
-    <!-- ══════════ TAB: Settings ══════════ -->
+    <!-- TAB: Settings -->
     <section class="tab-panel" id="tab-settings" role="tabpanel">
       <div class="card">
         <div class="section-label">Behavior</div>
-
         <div class="setting-row">
           <div class="setting-info">
-            <span class="setting-title">🔒 Lock Speed</span>
-            <span class="setting-desc">Re-apply speed when video source changes</span>
+            <span class="setting-title">Lock Speed</span>
+            <span class="setting-desc">Re-apply speed on video source change</span>
           </div>
           <label class="switch">
             <input type="checkbox" id="rememberSpeedToggle" checked>
             <span class="switch-track"></span>
           </label>
         </div>
-
         <div class="setting-row">
           <div class="setting-info">
-            <span class="setting-title">💬 Speed Toast</span>
-            <span class="setting-desc">Show speed change notification on video</span>
+            <span class="setting-title">Speed Toast</span>
+            <span class="setting-desc">Show notification on speed change</span>
           </div>
           <label class="switch">
             <input type="checkbox" id="hudToggle" checked>
             <span class="switch-track"></span>
           </label>
         </div>
-
         <div class="setting-row">
           <div class="setting-info">
-            <span class="setting-title">🎛 On-Video Widget</span>
-            <span class="setting-desc">Show mini +/− overlay on video player</span>
+            <span class="setting-title">On-Video Widget</span>
+            <span class="setting-desc">Show speed control on video player</span>
           </div>
           <label class="switch">
             <input type="checkbox" id="overlayToggle" checked>
             <span class="switch-track"></span>
           </label>
         </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-title">Step Size</span>
+            <span class="setting-desc">Step for +/− buttons</span>
+          </div>
+          <div class="step-select-group" id="stepSelectGroup">
+            <button class="step-opt-btn" data-step="0.05">0.05</button>
+            <button class="step-opt-btn active" data-step="0.10">0.10</button>
+            <button class="step-opt-btn" data-step="0.25">0.25</button>
+            <button class="step-opt-btn" data-step="0.50">0.50</button>
+          </div>
+        </div>
       </div>
-
       <div class="card">
         <div class="section-label">About</div>
         <div class="setting-row">
           <div class="setting-info">
-            <span class="setting-title">Version</span>
-            <span class="setting-desc">1.0.0 — Works on JioHotstar, YouTube & all HTML5 video</span>
+            <span class="setting-title">Version 1.0.0</span>
+            <span class="setting-desc">Works on JioHotstar, YouTube & all HTML5 video</span>
           </div>
         </div>
         <div class="setting-row">
           <div class="setting-info">
-            <span class="setting-title">⚠️ Live Streams</span>
-            <span class="setting-desc">Speed control is disabled on live streams & video calls</span>
+            <span class="setting-desc">Speed control is auto-disabled on live streams & video calls</span>
           </div>
         </div>
       </div>
     </section>
 
     <footer class="footer">
-      Optimized for <span>JioHotstar</span> • Works everywhere
+      Works on <span>JioHotstar</span> · <span>YouTube</span> · all HTML5 video
     </footer>
   </div>
 

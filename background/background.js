@@ -1,10 +1,12 @@
-// Background Service Worker for JioHotstar Speed & Playback Controller
+// Background Service Worker
 
 const DEFAULT_SETTINGS = {
   speed: 1.0,
   step: 0.1,
   rememberSpeed: true,
   hudEnabled: true,
+  overlayEnabled: true,
+  extensionDisabled: false,
   filters: {
     brightness: 100,
     contrast: 100,
@@ -13,36 +15,42 @@ const DEFAULT_SETTINGS = {
   }
 };
 
-// Initialize settings on installation
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.get(DEFAULT_SETTINGS, (items) => {
     chrome.storage.local.set(items);
-    updateBadge(items.speed);
+    updateBadge(items.speed, items.extensionDisabled);
   });
 });
 
-// Update extension action badge
-function updateBadge(speed) {
-  if (!speed || speed === 1.0) {
+function updateBadge(speed, disabled) {
+  if (disabled) {
+    chrome.action.setBadgeText({ text: 'OFF' });
+    chrome.action.setBadgeBackgroundColor({ color: '#666666' });
+    return;
+  }
+  if (!speed || Math.abs(parseFloat(speed) - 1.0) < 0.01) {
     chrome.action.setBadgeText({ text: '' });
   } else {
-    const formatted = parseFloat(speed).toFixed(1).replace('.0', '');
-    chrome.action.setBadgeText({ text: `${formatted}x` });
-    chrome.action.setBadgeBackgroundColor({ color: '#FF7043' }); // Peach-Coral glow badge
+    const num = parseFloat(parseFloat(speed).toFixed(2));
+    const text = num % 1 === 0 ? `${num}x` : `${num}`;
+    chrome.action.setBadgeText({ text });
+    chrome.action.setBadgeBackgroundColor({ color: '#3b82f6' });
   }
 }
 
-// Listen for storage updates
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && changes.speed) {
-    updateBadge(changes.speed.newValue);
+  if (area === 'local') {
+    chrome.storage.local.get(['speed', 'extensionDisabled'], (items) => {
+      updateBadge(items.speed, items.extensionDisabled);
+    });
   }
 });
 
-// Listen for popup or content script messages
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'UPDATE_BADGE') {
-    updateBadge(request.speed);
+    chrome.storage.local.get(['extensionDisabled'], (items) => {
+      updateBadge(request.speed, items.extensionDisabled);
+    });
     sendResponse({ success: true });
   }
   return true;
