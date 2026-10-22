@@ -47,18 +47,18 @@
 /* ── Mini Overlay Widget (mid-left) ── */
 #jio-mini-overlay {
   position: absolute !important;
-  top: 50% !important;
-  left: 10px !important;
+  top: 50%;
+  left: 12px;
   right: auto !important;
   bottom: auto !important;
-  transform: translateY(-50%) !important;
+  transform: translateY(-50%);
   z-index: 2147483647 !important;
   display: flex !important;
   align-items: center !important;
   gap: 1px !important;
-  background: rgba(0, 0, 0, 0.7) !important;
-  backdrop-filter: blur(10px) !important;
-  -webkit-backdrop-filter: blur(10px) !important;
+  background: rgba(0, 0, 0, 0.72) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
   border-radius: 6px !important;
   padding: 2px 4px !important;
@@ -72,6 +72,32 @@
 
 #jio-mini-overlay:hover {
   opacity: 1 !important;
+}
+
+.jio-mini-drag {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 14px !important;
+  height: 22px !important;
+  color: rgba(255, 255, 255, 0.45) !important;
+  font-size: 11px !important;
+  letter-spacing: -1px !important;
+  cursor: grab !important;
+  border-radius: 3px !important;
+  transition: color 0.12s ease, background 0.12s ease !important;
+  user-select: none !important;
+  line-height: 1 !important;
+  box-sizing: border-box !important;
+}
+
+.jio-mini-drag:hover {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+}
+
+.jio-mini-drag:active {
+  cursor: grabbing !important;
 }
 
 .jio-mini-btn {

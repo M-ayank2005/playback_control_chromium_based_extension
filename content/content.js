@@ -15,6 +15,7 @@
   let isRateLocking = false;
   let hudTimeout = null;
   let overlayWidget = null;
+  let overlayPosition = null;
 
   let videoFilters = {
     brightness: 100,
@@ -42,13 +43,14 @@
   if (isExcludedDomain()) return;
 
   // Load initial settings
-  chrome.storage.local.get(['speed', 'step', 'rememberSpeed', 'hudEnabled', 'overlayEnabled', 'filters', 'extensionDisabled'], (res) => {
+  chrome.storage.local.get(['speed', 'step', 'rememberSpeed', 'hudEnabled', 'overlayEnabled', 'filters', 'extensionDisabled', 'overlayPosition'], (res) => {
     if (res.speed) currentSpeed = parseFloat(res.speed);
     if (res.step) speedStep = parseFloat(res.step);
     if (res.rememberSpeed !== undefined) rememberSpeed = res.rememberSpeed;
     if (res.hudEnabled !== undefined) hudEnabled = res.hudEnabled;
     if (res.overlayEnabled !== undefined) overlayEnabled = res.overlayEnabled;
     if (res.filters) videoFilters = res.filters;
+    if (res.overlayPosition) overlayPosition = res.overlayPosition;
     extensionDisabled = !!res.extensionDisabled;
 
     if (!extensionDisabled) {
@@ -179,8 +181,123 @@
   }
 
   // ──────────────────────────────────────
-  // Overlay Widget (mid-left of video)
+  // Overlay Widget (mid-left of video, draggable)
   // ──────────────────────────────────────
+  function getOverlayParent(video) {
+    if (!video) return document.body;
+
+    // 1. YouTube: #movie_player is the actual player container with true bounds.
+    // Explicitly avoid .html5-video-container because its clientHeight is 0.
+    const ytPlayer = video.closest('#movie_player, .html5-video-player');
+    if (ytPlayer && ytPlayer.clientHeight > 100) {
+      return ytPlayer;
+    }
+
+    // 2. Hotstar / Shaka / standard streaming players
+    const knownPlayer = video.closest(
+      '.shaka-video-container, [data-player-container], .vjs-tech, [class*="player-container"], [class*="player_container"], [class*="player-wrapper"]'
+    );
+    if (knownPlayer && knownPlayer.clientHeight > 100) {
+      return knownPlayer;
+    }
+
+    // 3. Walk upwards to find an ancestor with actual non-zero height
+    let curr = video.parentElement;
+    while (curr && curr !== document.body) {
+      if (curr.classList && curr.classList.contains('html5-video-container')) {
+        curr = curr.parentElement;
+        continue;
+      }
+      if (curr.clientHeight >= (video.clientHeight ? video.clientHeight * 0.7 : 100)) {
+        return curr;
+      }
+      curr = curr.parentElement;
+    }
+
+    return video.parentElement || document.body;
+  }
+
+  function applyOverlaySavedPosition() {
+    if (!overlayWidget) return;
+    if (overlayPosition && typeof overlayPosition.topPercent === 'number') {
+      overlayWidget.style.top = `${overlayPosition.topPercent}%`;
+      overlayWidget.style.left = `${overlayPosition.leftPx}px`;
+      overlayWidget.style.transform = 'translateY(-50%)';
+    } else {
+      overlayWidget.style.top = '50%';
+      overlayWidget.style.left = '12px';
+      overlayWidget.style.transform = 'translateY(-50%)';
+    }
+  }
+
+  function initOverlayDrag(widget, handle, parent) {
+    let isDragging = false;
+    let startX = 0, startY = 0;
+    let initialLeft = 0, initialTop = 0;
+
+    handle.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      overlayPosition = null;
+      chrome.storage.local.remove('overlayPosition');
+      applyOverlaySavedPosition();
+    });
+
+    handle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+
+      const rect = widget.getBoundingClientRect();
+      const parentRect = parent.getBoundingClientRect();
+
+      initialLeft = rect.left - parentRect.left;
+      initialTop = rect.top - parentRect.top;
+
+      widget.style.transform = 'none';
+      widget.style.left = `${initialLeft}px`;
+      widget.style.top = `${initialTop}px`;
+
+      const onMouseMove = (moveEvt) => {
+        if (!isDragging) return;
+        moveEvt.preventDefault();
+        const dx = moveEvt.clientX - startX;
+        const dy = moveEvt.clientY - startY;
+
+        const parentW = parent.clientWidth || window.innerWidth;
+        const parentH = parent.clientHeight || window.innerHeight;
+        const widgetW = widget.offsetWidth || 150;
+        const widgetH = widget.offsetHeight || 30;
+
+        let newLeft = Math.max(8, Math.min(parentW - widgetW - 8, initialLeft + dx));
+        let newTop = Math.max(10, Math.min(parentH - widgetH - 10, initialTop + dy));
+
+        widget.style.left = `${newLeft}px`;
+        widget.style.top = `${newTop}px`;
+      };
+
+      const onMouseUp = () => {
+        if (!isDragging) return;
+        isDragging = false;
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+
+        const parentH = parent.clientHeight || 1;
+        const currentTop = parseFloat(widget.style.top) || 0;
+        const currentLeft = parseFloat(widget.style.left) || 12;
+        const topPercent = Math.max(2, Math.min(95, parseFloat(((currentTop / parentH) * 100).toFixed(1))));
+
+        overlayPosition = { topPercent, leftPx: Math.round(currentLeft) };
+        chrome.storage.local.set({ overlayPosition });
+      };
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+  }
+
   function createOrUpdateOverlay() {
     if (!overlayEnabled || extensionDisabled) {
       if (overlayWidget) { overlayWidget.remove(); overlayWidget = null; }
@@ -192,7 +309,7 @@
       return;
     }
 
-    const parent = video.closest('.html5-video-player, [class*="player-container"], [class*="video-container"]') || video.parentElement || document.body;
+    const parent = getOverlayParent(video);
     if (getComputedStyle(parent).position === 'static') {
       parent.style.position = 'relative';
     }
@@ -202,6 +319,7 @@
       overlayWidget = document.createElement('div');
       overlayWidget.id = 'jio-mini-overlay';
       overlayWidget.innerHTML = `
+        <span class="jio-mini-drag" id="jio-mini-drag" title="Drag to reposition (Double-click to reset)">⋮⋮</span>
         <button class="jio-mini-btn" id="jio-mini-minus" title="−${speedStep}x">−</button>
         <button class="jio-mini-btn jio-mini-btn-fine" id="jio-mini-minus-005" title="−0.05x">−.05</button>
         <span class="jio-mini-speed" id="jio-mini-speed-val" title="Reset to 1.0x">${formatOverlaySpeed(currentSpeed)}</span>
@@ -209,6 +327,8 @@
         <button class="jio-mini-btn" id="jio-mini-plus" title="+${speedStep}x">+</button>
       `;
       parent.appendChild(overlayWidget);
+
+      applyOverlaySavedPosition();
 
       overlayWidget.querySelector('#jio-mini-minus').addEventListener('click', (e) => {
         e.preventDefault(); e.stopPropagation();
@@ -230,6 +350,11 @@
         e.preventDefault(); e.stopPropagation();
         applySpeedToAllVideos(currentSpeed + speedStep);
       });
+
+      const dragHandle = overlayWidget.querySelector('#jio-mini-drag');
+      if (dragHandle) {
+        initOverlayDrag(overlayWidget, dragHandle, parent);
+      }
 
       ['click', 'mousedown', 'mouseup', 'dblclick', 'contextmenu'].forEach(evt => {
         overlayWidget.addEventListener(evt, e => e.stopPropagation());

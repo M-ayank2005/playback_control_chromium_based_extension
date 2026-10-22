@@ -81,7 +81,8 @@
     window.chrome.storage = window.chrome.storage || {};
     window.chrome.storage.local = {
       get: (keys, cb) => cb({ speed: 1.0, step: 0.1, rememberSpeed: true, hudEnabled: true, overlayEnabled: true, extensionDisabled: false }),
-      set: (obj, cb) => cb && cb()
+      set: (obj, cb) => cb && cb(),
+      remove: (key, cb) => cb && cb()
     };
     window.chrome.runtime = window.chrome.runtime || {};
     window.chrome.runtime.sendMessage = (msg, cb) => cb && cb({ success: true });
