@@ -87,6 +87,7 @@
   border-radius: 3px !important;
   transition: color 0.12s ease, background 0.12s ease !important;
   user-select: none !important;
+  touch-action: none !important;
   line-height: 1 !important;
   box-sizing: border-box !important;
 }

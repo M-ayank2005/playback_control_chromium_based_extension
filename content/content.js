@@ -243,9 +243,56 @@
       applyOverlaySavedPosition();
     });
 
-    handle.addEventListener('mousedown', (e) => {
+    const onEndDrag = (e) => {
+      if (!isDragging) return;
+      isDragging = false;
+
+      try {
+        if (handle.releasePointerCapture && e && e.pointerId) {
+          handle.releasePointerCapture(e.pointerId);
+        }
+      } catch (err) { /* ignore */ }
+
+      // Remove capture-phase listeners
+      window.removeEventListener('pointermove', onMove, true);
+      window.removeEventListener('pointerup', onEndDrag, true);
+      window.removeEventListener('pointercancel', onEndDrag, true);
+      window.removeEventListener('mousemove', onMove, true);
+      window.removeEventListener('mouseup', onEndDrag, true);
+      window.removeEventListener('blur', onEndDrag);
+
+      const parentH = parent.clientHeight || 1;
+      const currentTop = parseFloat(widget.style.top) || 0;
+      const currentLeft = parseFloat(widget.style.left) || 12;
+      const topPercent = Math.max(2, Math.min(95, parseFloat(((currentTop / parentH) * 100).toFixed(1))));
+
+      overlayPosition = { topPercent, leftPx: Math.round(currentLeft) };
+      chrome.storage.local.set({ overlayPosition });
+    };
+
+    const onMove = (moveEvt) => {
+      if (!isDragging) return;
+      moveEvt.preventDefault();
+      const dx = moveEvt.clientX - startX;
+      const dy = moveEvt.clientY - startY;
+
+      const parentW = parent.clientWidth || window.innerWidth;
+      const parentH = parent.clientHeight || window.innerHeight;
+      const widgetW = widget.offsetWidth || 150;
+      const widgetH = widget.offsetHeight || 30;
+
+      let newLeft = Math.max(8, Math.min(parentW - widgetW - 8, initialLeft + dx));
+      let newTop = Math.max(10, Math.min(parentH - widgetH - 10, initialTop + dy));
+
+      widget.style.left = `${newLeft}px`;
+      widget.style.top = `${newTop}px`;
+    };
+
+    const onStartDrag = (e) => {
+      if (e.button !== 0 && e.buttons !== 1) return; // Only primary button
       e.preventDefault();
       e.stopPropagation();
+
       isDragging = true;
       startX = e.clientX;
       startY = e.clientY;
@@ -260,42 +307,23 @@
       widget.style.left = `${initialLeft}px`;
       widget.style.top = `${initialTop}px`;
 
-      const onMouseMove = (moveEvt) => {
-        if (!isDragging) return;
-        moveEvt.preventDefault();
-        const dx = moveEvt.clientX - startX;
-        const dy = moveEvt.clientY - startY;
+      try {
+        if (handle.setPointerCapture && e.pointerId) {
+          handle.setPointerCapture(e.pointerId);
+        }
+      } catch (err) { /* ignore */ }
 
-        const parentW = parent.clientWidth || window.innerWidth;
-        const parentH = parent.clientHeight || window.innerHeight;
-        const widgetW = widget.offsetWidth || 150;
-        const widgetH = widget.offsetHeight || 30;
+      // Use capture: true on window so child stopPropagation cannot block mouseup!
+      window.addEventListener('pointermove', onMove, true);
+      window.addEventListener('pointerup', onEndDrag, true);
+      window.addEventListener('pointercancel', onEndDrag, true);
+      window.addEventListener('mousemove', onMove, true);
+      window.addEventListener('mouseup', onEndDrag, true);
+      window.addEventListener('blur', onEndDrag);
+    };
 
-        let newLeft = Math.max(8, Math.min(parentW - widgetW - 8, initialLeft + dx));
-        let newTop = Math.max(10, Math.min(parentH - widgetH - 10, initialTop + dy));
-
-        widget.style.left = `${newLeft}px`;
-        widget.style.top = `${newTop}px`;
-      };
-
-      const onMouseUp = () => {
-        if (!isDragging) return;
-        isDragging = false;
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
-
-        const parentH = parent.clientHeight || 1;
-        const currentTop = parseFloat(widget.style.top) || 0;
-        const currentLeft = parseFloat(widget.style.left) || 12;
-        const topPercent = Math.max(2, Math.min(95, parseFloat(((currentTop / parentH) * 100).toFixed(1))));
-
-        overlayPosition = { topPercent, leftPx: Math.round(currentLeft) };
-        chrome.storage.local.set({ overlayPosition });
-      };
-
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', onMouseUp);
-    });
+    handle.addEventListener('pointerdown', onStartDrag);
+    handle.addEventListener('mousedown', onStartDrag);
   }
 
   function createOrUpdateOverlay() {
